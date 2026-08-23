@@ -23,7 +23,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 origins = [
-    "http://localhost:4200"
+    "http://localhost:4200",
+    "https://event-master-ui-rouge.vercel.app"
 ]
 
 app.add_middleware(
