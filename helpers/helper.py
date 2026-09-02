@@ -12,7 +12,7 @@ from database.database import SessionLocal
 from datetime import datetime, timezone
 
 lock_async = asyncio.Lock()
-section_locks: dict[int, asyncio.Lock] = {}
+section_locks: dict[int, dict[int, asyncio.Lock]] = {}
 
 SECRET_KEY=os.getenv("SECRET_KEY")
 ALGORITHM=os.getenv("ALGORITHM")
@@ -79,9 +79,11 @@ async def update_seats():
             pass
         await asyncio.sleep(60)
 
-async def get_section_lock(sectionId: int):
+async def get_section_lock(event_id: int, section_id: int):
     async with lock_async:
-        if sectionId not in section_locks:
-            section_locks[sectionId] = asyncio.Lock()
+        if event_id not in section_locks:
+            section_locks[event_id] = {}
+        if section_id not in section_locks[event_id]:
+            section_locks[event_id][section_id] = asyncio.Lock()
         
-        return section_locks[sectionId]
+        return section_locks[event_id][section_id]

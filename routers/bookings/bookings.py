@@ -46,7 +46,7 @@ async def addBookings(booking: BookingReq, db: AsyncSession = Depends(getDb), us
             status_code=400
         )
     
-    sessionLock = await get_section_lock(booking.section_id)
+    sessionLock = await get_section_lock(booking.event_id, booking.section_id)
     async with sessionLock:
         try:
 
