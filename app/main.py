@@ -4,13 +4,13 @@ from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import users, all
-from routers.venues import venues
-from routers.events import events
-from routers.bookings import bookings
+from app.routers import users, all
+from app.routers.venues import venues
+from app.routers.events import events
+from app.routers.bookings import bookings
 from contextlib import asynccontextmanager
 import asyncio
-from helpers.helper import update_seats
+from app.helpers.helper import update_seats
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,11 +1,11 @@
-from database.database import SessionLocal
+from app.database.database import SessionLocal
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from fastapi import Depends, HTTPException
 import os
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.models import User
+from app.models.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 SECRET_KEY=os.getenv("SECRET_KEY")

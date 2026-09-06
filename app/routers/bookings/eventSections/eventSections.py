@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models.models import User, Event, EventSection, Section, Seat, EventSeat
-from dependency.dependency import getDb, getCurrentUser
-from routers.bookings.eventSections.eventSeats.eventSeats import event_seats_router
+from app.models.models import User, Event, EventSection, Section, Seat, EventSeat
+from app.dependency.dependency import getDb, getCurrentUser
+from app.routers.bookings.eventSections.eventSeats.eventSeats import event_seats_router
 
 event_section_router = APIRouter()
 

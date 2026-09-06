@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from schemas.schema import UserReq, LoginReq
+from app.schemas.schema import UserReq, LoginReq
 from pwdlib import PasswordHash
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from dependency.dependency import getDb
-from models.models import User
-from helpers.helper import createAccessToken
+from app.dependency.dependency import getDb
+from app.models.models import User
+from app.helpers.helper import createAccessToken
 
 password_hash = PasswordHash.recommended()
 

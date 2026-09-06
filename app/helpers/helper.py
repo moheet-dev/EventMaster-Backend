@@ -7,8 +7,8 @@ import time
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update
-from models.models import EventSeat, SeatStatus
-from database.database import SessionLocal
+from app.models.models import EventSeat, SeatStatus
+from app.database.database import SessionLocal
 from datetime import datetime, timezone
 
 lock_async = asyncio.Lock()

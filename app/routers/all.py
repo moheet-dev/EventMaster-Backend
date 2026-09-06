@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
-from models.models import User
-from dependency.dependency import getCurrentUser
-from helpers.helper import createUploadSignature
+from app.models.models import User
+from app.dependency.dependency import getCurrentUser
+from app.helpers.helper import createUploadSignature
 router = APIRouter()
 
 @router.get("/upload-signature")

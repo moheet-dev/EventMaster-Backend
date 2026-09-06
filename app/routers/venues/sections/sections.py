@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import aliased
-from models.models import User, Venue, Section, Seat
-from schemas.schema import SectionReq, SectionModel
-from dependency.dependency import getDb, getCurrentUser
-from routers.venues.sections.seats.seats import seat_router
+from app.models.models import User, Venue, Section, Seat
+from app.schemas.schema import SectionReq, SectionModel
+from app.dependency.dependency import getDb, getCurrentUser
+from app.routers.venues.sections.seats.seats import seat_router
 
 section_router = APIRouter()
 

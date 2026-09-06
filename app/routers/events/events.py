@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from models.models import User, Event, EventSeat, EventSection, Seat, Venue, Section
-from schemas.schema import EventReq, SectionReq
-from dependency.dependency import getCurrentUser, getDb
+from app.models.models import User, Event, EventSeat, EventSection, Seat, Venue, Section
+from app.schemas.schema import EventReq, SectionReq
+from app.dependency.dependency import getCurrentUser, getDb
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from math import ceil

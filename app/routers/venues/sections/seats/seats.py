@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.models import User, Venue, Section, Seat
-from schemas.schema import SeatReq
-from dependency.dependency import getDb, getCurrentUser
+from app.models.models import User, Venue, Section, Seat
+from app.schemas.schema import SeatReq
+from app.dependency.dependency import getDb, getCurrentUser
 
 seat_router = APIRouter()
 

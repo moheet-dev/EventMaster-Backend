@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from routers.bookings.eventSections.eventSections import event_section_router
+from app.routers.bookings.eventSections.eventSections import event_section_router
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update, select
-from helpers.helper import get_section_lock
-from dependency.dependency import getDb, getCurrentUser
-from models.models import User, Booking, BookingSeat, EventSeat, Event, EventSection, Seat, SeatStatus, BookingStatus, Venue, Section
-from schemas.schema import BookingReq, PaymentVerify
+from app.helpers.helper import get_section_lock
+from app.dependency.dependency import getDb, getCurrentUser
+from app.models.models import User, Booking, BookingSeat, EventSeat, Event, EventSection, Seat, SeatStatus, BookingStatus, Venue, Section
+from app.schemas.schema import BookingReq, PaymentVerify
 from datetime import timedelta, datetime, timezone
 import razorpay
 import os
