@@ -17,6 +17,8 @@ A full-featured **event booking platform** backend built with **FastAPI** and **
 | **Image Storage** | Cloudinary (signed upload flow) |
 | **CORS** | Localhost:4200 + Vercel production origin |
 | **Background Tasks** | `asyncio` task (seat-timeout cleanup loop) |
+| **Containerisation** | Docker (Python 3.13 base image, Uvicorn entrypoint) |
+| **Load Testing** | Locust (`app/tests/locustfile.py`) |
 
 ---
 
@@ -24,34 +26,39 @@ A full-featured **event booking platform** backend built with **FastAPI** and **
 
 ```
 eventmaster/
-├── main.py                          # App entry point, router registration, lifespan
-├── database/
-│   └── database.py                  # Async SQLAlchemy engine + session factory
-├── models/
-│   └── models.py                    # All ORM models (User, Venue, Event, Booking …)
-├── schemas/
-│   └── schema.py                    # Pydantic request/response schemas
-├── dependency/
-│   └── dependency.py                # DB session + JWT auth dependency injection
-├── helpers/
-│   └── helper.py                    # JWT utils, Cloudinary signature, seat-timeout task
-└── routers/
-    ├── all.py                       # Global endpoints (upload signature)
-    ├── users.py                     # Auth — register / login
-    ├── venues/
-    │   ├── venues.py                # Venue CRUD
-    │   └── sections/
-    │       ├── sections.py          # Section CRUD + tier management
-    │       └── seats/
-    │           └── seats.py         # Seat CRUD
-    ├── events/
-    │   └── events.py                # Event CRUD with search/pagination
-    └── bookings/
-        ├── bookings.py              # Booking flow + payment verify + history
-        └── eventSections/
-            ├── eventSections.py     # Event section listing with live availability
-            └── eventSeats/
-                └── eventSeats.py   # Per-section seat map with real-time status
+├── Dockerfile                       # Docker image definition (Python 3.13, Uvicorn)
+├── requirements.txt
+└── app/                             # All application source code
+    ├── main.py                      # App entry point, router registration, lifespan
+    ├── database/
+    │   └── database.py              # Async SQLAlchemy engine + session factory
+    ├── models/
+    │   └── models.py                # All ORM models (User, Venue, Event, Booking …)
+    ├── schemas/
+    │   └── schema.py                # Pydantic request/response schemas
+    ├── dependency/
+    │   └── dependency.py            # DB session + JWT auth dependency injection
+    ├── helpers/
+    │   └── helper.py                # JWT utils, Cloudinary signature, seat-timeout task
+    ├── tests/
+    │   └── locustfile.py            # Locust load-test — concurrent booking simulation
+    └── routers/
+        ├── all.py                   # Global endpoints (upload signature)
+        ├── users.py                 # Auth — register / login
+        ├── venues/
+        │   ├── venues.py            # Venue CRUD
+        │   └── sections/
+        │       ├── sections.py      # Section CRUD + tier management
+        │       └── seats/
+        │           └── seats.py     # Seat CRUD
+        ├── events/
+        │   └── events.py            # Event CRUD with search/pagination
+        └── bookings/
+            ├── bookings.py          # Booking flow + payment verify + history
+            └── eventSections/
+                ├── eventSections.py # Event section listing with live availability
+                └── eventSeats/
+                    └── eventSeats.py # Per-section seat map with real-time status
 ```
 
 ---
@@ -248,7 +255,7 @@ Events are tied to a specific venue. When an event is created, the system **auto
 
 ### 6. Booking Flow
 
-The booking system uses **per-section asyncio locks** to prevent race conditions when multiple users try to book the same seats simultaneously.
+The booking system uses **per-event, per-section asyncio locks** to prevent race conditions when multiple users try to book the same seats simultaneously. Locks are scoped to `(event_id, section_id)` pairs — meaning concurrent bookings for different events within the same section do not block each other.
 
 ```mermaid
 sequenceDiagram
@@ -289,7 +296,7 @@ sequenceDiagram
 **Booking rules:**
 - Seats are `HELD` for exactly **5 minutes** after a booking is initiated.
 - If payment is not verified within 5 minutes, the background cleanup task resets them to `AVAILABLE`.
-- A per-section asyncio lock ensures **atomic seat selection** — no double-booking is possible.
+- A per-event, per-section asyncio lock (`dict[event_id → dict[section_id → Lock]]`) ensures **atomic seat selection** — no double-booking is possible, while maximising concurrency across different events or sections.
 - Payment signature is verified using Razorpay HMAC before any DB state is changed.
 
 ---
@@ -423,11 +430,39 @@ source .venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
 
 # 3. Start the server
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 
 # 4. Open interactive API docs
 # http://localhost:8000/docs
 ```
+
+## 🐳 Running with Docker
+
+```bash
+# Build the image
+docker build -t eventmaster .
+
+# Run the container (map port 80 → 8000 locally)
+docker run -p 8000:80 --env-file .env eventmaster
+```
+
+The Dockerfile uses **Python 3.13**, installs dependencies from `requirements.txt`, copies the `app/` package, and starts Uvicorn with `--proxy-headers` (suitable for reverse-proxy deployments).
+
+## 🦗 Load Testing with Locust
+
+A Locust load-test script lives at `app/tests/locustfile.py`. It simulates concurrent users authenticating and immediately attempting to book seats, which is the primary race-condition scenario.
+
+```bash
+# Install locust (already in requirements.txt)
+pip install locust
+
+# Run the web UI
+locust -f app/tests/locustfile.py --host http://localhost:8000
+
+# Open http://localhost:8089 to configure and start the test
+```
+
+> The `Book` user class logs in on startup and immediately calls `POST /bookings/book`, exercising the per-event/section locking mechanism under concurrent load.
 
 ---
 
