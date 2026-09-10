@@ -98,31 +98,33 @@ async def addBookings(booking: BookingReq, db: AsyncSession = Depends(getDb), us
                     seat_id = seat.seat_id,
                     price = existingSection.price
                 ))
-            
-            data = {
-                "amount": int(amountPayable * 100),
-                "currency": "INR",
-                "receipt": (f"order_receipt_{newBooking.id}")
-            }
-
-            payment = client.order.create(data=data)
-            newBooking.order_id = payment["id"]
-
-            await db.commit()
-
-            res = {
-                "order_id": payment["id"],
-                "amount": amountPayable
-            }
-
-            return {
-                "data": res,
-                "message": "please make the payment",
-                "status": 201
-            }
         except:
             await db.rollback()
             raise
+    try:
+        data = {
+            "amount": int(amountPayable * 100),
+            "currency": "INR",
+            "receipt": (f"order_receipt_{newBooking.id}")
+        }
+        payment = client.order.create(data=data)
+        newBooking.order_id = payment["id"]
+
+        await db.commit()
+
+        res = {
+            "order_id": payment["id"],
+            "amount": amountPayable
+        }
+
+        return {
+            "data": res,
+            "message": "please make the payment",
+            "status": 201
+        }
+    except:
+        await db.rollback()
+        raise
 
 @router.post("/book/verify")
 async def paymentCallback(data: PaymentVerify, db: AsyncSession = Depends(getDb), user: User = Depends(getCurrentUser)):
