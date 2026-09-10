@@ -73,7 +73,7 @@ async def addBookings(booking: BookingReq, db: AsyncSession = Depends(getDb), us
                 )
             timeout = datetime.now(timezone.utc) + timedelta(minutes=5)
             for seat in eventSeats:
-                if seat.status != SeatStatus.AVAILABLE:
+                if (seat.status == SeatStatus.SOLD) or (seat.status == SeatStatus.HELD and seat.timeout_at >= datetime.now(timezone.utc)):
                     raise HTTPException(
                         detail="seat already booked",
                         status_code=400

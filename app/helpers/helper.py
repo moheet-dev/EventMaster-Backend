@@ -77,7 +77,7 @@ async def update_seats():
                 await db.commit()
         except:
             pass
-        await asyncio.sleep(60)
+        await asyncio.sleep(600)
 
 async def get_section_lock(event_id: int, section_id: int):
     async with lock_async:
