@@ -1,9 +1,14 @@
-from locust import HttpUser, task
+from locust import HttpUser, between, task
 from json import JSONDecodeError
 import random
 
+event_id = 3
+
 class Book(HttpUser):
-    def on_start(self) -> None:
+    wait_time = between(1,5)
+
+    @task
+    def login(self):
         with self.client.post("/users/login", json={
             "identifier": "moheet",
             "password": "moheet"
@@ -19,7 +24,50 @@ class Book(HttpUser):
                 return
 
             if self.token != None:
+                self.getSections()
+
+    def getSections(self):
+        if not self.token:
+            return
+        with self.client.get(
+            f"/bookings/{event_id}/sections/",
+            headers={
+                "Authorization": f"Bearer {self.token}"
+            },
+            catch_response=True
+        ) as resp:
+            result = resp.json()
+            numSec = len(result["data"])
+            if numSec == 0:
+                resp.success()
+                return
+            randInd = random.randint(0, numSec - 1)
+            self.selectedSection = result["data"][randInd]["id"]
+
+            if self.selectedSection != None:
+                self.getSeat()
+    
+    def getSeat(self):
+        if not self.token:
+            return
+        with self.client.get(
+            f"/bookings/{event_id}/sections/{self.selectedSection}/seats?format=false",
+            headers={
+                "Authorization": f"Bearer {self.token}"
+            },
+            catch_response=True
+        ) as resp:
+            result = resp.json()
+            numSea = len(result["data"])
+            if numSea == 0:
+                resp.success()
+                return
+            randInd = random.randint(0, numSea - 1)
+            self.selectedSeat = result["data"][randInd]["seat_id"]
+
+            if self.selectedSeat != None:
                 self.book()
+    
 
     def book(self):
         if not self.token:
@@ -27,9 +75,9 @@ class Book(HttpUser):
         with self.client.post(
             "/bookings/book",
             json={
-                "section_id": 1,
-                "event_id": 1,
-                "seats": [3]
+                "section_id": self.selectedSection,
+                "event_id": event_id,
+                "seats": [self.selectedSeat]
             },
             headers={
                 "Authorization": f"Bearer {self.token}"

@@ -1,3 +1,4 @@
+from typing import Literal
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -53,3 +54,6 @@ class PaymentVerify(BaseModel):
     order_id: str
     payment_id: str
     signature: str
+
+class SeatsQuery(BaseModel):
+    format: Literal["true", "false"] = "true"

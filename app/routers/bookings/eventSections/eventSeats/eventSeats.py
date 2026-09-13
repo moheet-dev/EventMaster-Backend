@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.models import User, Event, EventSection, Section, Seat, EventSeat
+from app.schemas.schema import SeatsQuery
 from app.dependency.dependency import getDb, getCurrentUser
+from typing import Annotated
 
 event_seats_router = APIRouter()
 
 @event_seats_router.get("")
-async def getEventSeats(eventId: int, sectionId: int, db: AsyncSession = Depends(getDb), user: User = Depends(getCurrentUser)):
+async def getEventSeats(eventId: int, sectionId: int, format: Annotated[SeatsQuery, Query()], db: AsyncSession = Depends(getDb), user: User = Depends(getCurrentUser)):
     result = await db.execute(select(Event).filter(Event.id == eventId))
     existingEvent = result.scalars().first()
 
@@ -44,6 +46,18 @@ async def getEventSeats(eventId: int, sectionId: int, db: AsyncSession = Depends
 
     result = await db.execute(stmt)
     seats = result.all()
+
+    if format.format == "false":
+        res = [
+            dict(row._mapping)
+            for row in seats
+        ]
+
+        return {
+            "data": res,
+            "message": "get all seats successful",
+            "status": 200
+        }
 
     res = {}
     for seat in seats:
