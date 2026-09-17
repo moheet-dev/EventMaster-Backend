@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.models.models import User, Event, EventSeat, EventSection, Seat, Venue, Section
-from app.schemas.schema import EventReq, SectionReq
+from app.models.models import User, Event, EventSeat, EventSection, Seat, Venue, Section, Booking, SeatStatus, BookingStatus, BookingSeat
+from app.schemas.schema import EventReq, SectionReq, SectionWiseStat
 from app.dependency.dependency import getCurrentUser, getDb
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from math import ceil
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 router = APIRouter()
 
@@ -171,3 +171,135 @@ async def updateEvent(eventId: int, data: EventReq, db: AsyncSession = Depends(g
         "message": "event update successful",
         "status": 200
     }
+
+@router.get("/{eventId}/dashboard")
+async def getEventData(eventId: int, db: AsyncSession = Depends(getDb), user: User = Depends(getCurrentUser)):
+    stmt = (
+        select(Event)
+        .where(Event.id == eventId)
+    )
+    result = await db.execute(stmt)
+    existingEvent = result.scalar_one_or_none()
+
+    if not existingEvent:
+        raise HTTPException(
+            detail="event not found",
+            status_code=404
+        )
+
+    stmt = (
+        select(
+            EventSeat.status,
+            Section.name,
+            Section.tier,
+            EventSection.price
+        )
+        .select_from(EventSeat)
+        .outerjoin(
+            Seat,
+            Seat.id == EventSeat.seat_id
+        )
+        .outerjoin(
+            Section,
+            Section.id == Seat.section_id
+        )
+        .outerjoin(
+            EventSection,
+            and_(EventSection.section_id == Section.id,
+            EventSection.event_id == EventSeat.event_id)
+        )
+        .where(
+            EventSeat.event_id == existingEvent.id
+        )
+        .order_by(Section.tier)
+    )
+    result = await db.execute(stmt)
+    data = result.all()
+    seats = [
+        dict(row._mapping)
+        for row in data
+    ]
+
+    bookedSeats = 0
+    pendingSeats = 0
+    section_wise = {}
+    for seat in seats:
+        if seat["status"] == SeatStatus.HELD:
+            pendingSeats += 1
+        if seat["tier"] not in section_wise:
+            section_wise[seat["tier"]] = SectionWiseStat(
+                name=seat["name"],
+                tier=seat["tier"],
+                price=seat["price"]
+            )
+        section_wise[seat["tier"]].capacity += 1
+        if seat["status"] == SeatStatus.SOLD:
+            section_wise[seat["tier"]].revenue += seat["price"]
+            section_wise[seat["tier"]].sold += 1
+            bookedSeats += 1
+        if seat["status"] == SeatStatus.AVAILABLE:
+            section_wise[seat["tier"]].available += 1
+        
+
+    stmt = (
+        select(Booking)
+        .where(
+            Booking.event_id == existingEvent.id
+        )
+    )
+    result = await db.execute(stmt)
+    bookings = result.scalars().all()
+
+    all_total_amount = sum(booking.total_amount for booking in bookings if booking.status == BookingStatus.CONFIRMED)
+
+    days_since_live = datetime.now(timezone.utc).date() - existingEvent.created_at.date()
+    booking_health = { "total": len(bookings) }
+    for bookingStatus in BookingStatus:
+        booking_health[bookingStatus.value] = 0
+    for booking in bookings:
+        booking_health[booking.status] += 1
+
+    stmt = (
+        select(
+            Booking.status,
+            Booking.created_at
+        )
+        .select_from(BookingSeat)
+        .outerjoin(
+            Booking,
+            Booking.id == BookingSeat.booking_id
+        )
+        .where(
+            Booking.event_id == existingEvent.id,
+            Booking.status == BookingStatus.CONFIRMED
+        )
+        .order_by(Booking.created_at)
+    )
+    result = await db.execute(stmt)
+    bookingSeats = result.all()
+
+    sales_trend = {}
+    for seat in bookingSeats:
+        days_passed = (seat.created_at.date() - existingEvent.created_at.date()).days + 1
+        if seat.status == BookingStatus.CONFIRMED:
+            if days_passed not in sales_trend:
+                sales_trend[days_passed] = 0
+            sales_trend[days_passed] += 1
+
+
+    return {
+        "data": {
+            "total_seats": len(seats),
+            "booked_seats": bookedSeats,
+            "held_seats": pendingSeats,
+            "available_seats": len(seats) - bookedSeats - pendingSeats,
+            "total_revenue": all_total_amount,
+            "days_since_live": days_since_live.days + 1,
+            "days_booked_since_live": sales_trend,
+            "booking_health": booking_health,
+            "section_wise": section_wise
+        },
+        "message": "get booking details successful",
+        "status": 200
+    }
+

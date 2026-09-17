@@ -8,6 +8,7 @@ from app.routers import users, all
 from app.routers.venues import venues
 from app.routers.events import events
 from app.routers.bookings import bookings
+from app.predictions import prediction
 from contextlib import asynccontextmanager
 import asyncio
 from app.helpers.helper import update_seats
@@ -70,4 +71,10 @@ app.include_router(
     bookings.router,
     prefix="/bookings",
     tags=["Bookings"]
+)
+
+app.include_router(
+    prediction.router,
+    prefix="/predictions",
+    tags=["Predictions"]
 )

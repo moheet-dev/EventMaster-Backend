@@ -1,6 +1,7 @@
 from typing import Literal
 from pydantic import BaseModel
 from datetime import datetime
+from decimal import Decimal
 
 class UserReq(BaseModel):
     username: str
@@ -57,3 +58,16 @@ class PaymentVerify(BaseModel):
 
 class SeatsQuery(BaseModel):
     format: Literal["true", "false"] = "true"
+
+class TicketSaleFeature(BaseModel):
+    days_since_live: int
+    capacity: int
+
+class SectionWiseStat(BaseModel):
+    name: str
+    tier: int
+    price: Decimal = Decimal("0.0")
+    capacity: int = 0
+    sold: int = 0
+    available: int = 0
+    revenue: Decimal = Decimal("0.0")
