@@ -1,6 +1,6 @@
 from app.database.database import Base
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, func, Text, ForeignKey, DateTime, Numeric, CheckConstraint, Enum as SQLEnum
+from sqlalchemy import String, func, Text, ForeignKey, DateTime, Numeric, CheckConstraint, Enum as SQLEnum, UniqueConstraint, Index, Integer
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -25,7 +25,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class Venue(Base):
     __tablename__ = "venues"
@@ -34,7 +34,7 @@ class Venue(Base):
     name: Mapped[str] = mapped_column(String(250), nullable=False)
     address: Mapped[str] = mapped_column(Text, nullable=False)
     display_image: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL", onupdate="CASCADE"))
 
 
@@ -42,20 +42,24 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(250), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     display_image: Mapped[str] = mapped_column(Text)
-    venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id", ondelete="SET NULL", onupdate="CASCADE"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    venue_id: Mapped[int | None] = mapped_column(ForeignKey("venues.id", ondelete="SET NULL", onupdate="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL", onupdate="CASCADE"))
     event_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        Index("idx_events_name_venue", "name", "venue_id")
+    )
 
 class Section(Base):
     __tablename__ = "sections"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    tier: Mapped[int] = mapped_column(Numeric, nullable=False)
+    tier: Mapped[int] = mapped_column(Integer, nullable=False)
     venue_id: Mapped[int] = mapped_column(ForeignKey("venues.id", ondelete="CASCADE", onupdate="CASCADE"))
 
 class Seat(Base):
@@ -63,8 +67,12 @@ class Seat(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(100), nullable=False)
-    row_number: Mapped[int] = mapped_column(Numeric, nullable=False)
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id", ondelete="CASCADE", onupdate="CASCADE"))
+
+    __table_args__ = (
+        UniqueConstraint("section_id", "code", name="unique_seat_constraint")
+    )
 
 class EventSection(Base):
     __tablename__ = "event_sections"
