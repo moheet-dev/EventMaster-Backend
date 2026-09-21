@@ -24,7 +24,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(50),unique=True,nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(nullable=False)
+    password: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class Venue(Base):
@@ -51,7 +51,7 @@ class Event(Base):
     event_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
-        Index("idx_events_name_venue", "name", "venue_id")
+        Index("idx_events_name_venue", "name", "venue_id"),
     )
 
 class Section(Base):
@@ -71,7 +71,7 @@ class Seat(Base):
     section_id: Mapped[int] = mapped_column(ForeignKey("sections.id", ondelete="CASCADE", onupdate="CASCADE"))
 
     __table_args__ = (
-        UniqueConstraint("section_id", "code", name="unique_seat_constraint")
+        UniqueConstraint("section_id", "code", name="unique_seat_constraint"),
     )
 
 class EventSection(Base):
