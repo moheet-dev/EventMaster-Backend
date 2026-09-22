@@ -1,6 +1,7 @@
 from app.database.database import Base
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, func, Text, ForeignKey, DateTime, Numeric, CheckConstraint, Enum as SQLEnum, UniqueConstraint, Index, Integer
+from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy import String, func, Text, ForeignKey, DateTime, Numeric, CheckConstraint, Enum as SQLEnum, UniqueConstraint, Index, Integer, Computed
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -49,9 +50,16 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL", onupdate="CASCADE"))
     event_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    tsv: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, ''))",
+            persisted=True
+        )
+    )
 
     __table_args__ = (
-        Index("idx_events_name_venue", "name", "venue_id"),
+        Index("idx_events_tsv", "tsv", postgresql_using="gin"),
     )
 
 class Section(Base):

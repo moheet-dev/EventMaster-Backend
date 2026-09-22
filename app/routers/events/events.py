@@ -3,7 +3,7 @@ from app.models.models import User, Event, EventSeat, EventSection, Seat, Venue,
 from app.schemas.schema import EventReq, SectionReq, SectionWiseStat
 from app.dependency.dependency import getCurrentUser, getDb
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import desc, literal, select, func, and_
 from math import ceil
 from datetime import date, timedelta, datetime, timezone
 
@@ -20,10 +20,15 @@ async def getAllEvents(
         db: AsyncSession = Depends(getDb), 
         user: User = Depends(getCurrentUser),
     ):
-    stmt = select(Event)
 
-    if nameSearch is not None:
-        stmt = stmt.filter(Event.name.ilike(f"%{nameSearch}%"))
+    stmt = select(Event.id, Event.name, Event.description, Event.display_image, Event.venue_id, 
+                Event.event_on, Event.created_at, Event.created_by, literal(0).label("rank"))
+
+    if nameSearch:
+        tsquery = func.plainto_tsquery("english", nameSearch)
+        rank = func.ts_rank(Event.tsv, tsquery)
+        stmt = select(Event.id, Event.name, Event.description, Event.display_image, Event.venue_id, 
+                Event.event_on, Event.created_at, Event.created_by, rank.label("rank")).where(Event.tsv.op("@@")(tsquery))
     if venueSearch is not None:
         stmt = stmt.filter(Event.venue_id == venueSearch)
     if from_date is not None:
@@ -37,8 +42,13 @@ async def getAllEvents(
     offset = (page - 1) * limit
     totalPages = ceil(total / limit)
 
-    result = await db.execute(stmt.offset(offset).limit(limit))
-    events = result.scalars().all()
+    result = await db.execute(stmt.offset(offset).limit(limit).order_by(desc("rank")))
+    rows = result.all()
+
+    events = [
+        dict(row._mapping)
+        for row in rows
+    ]
 
     return {
         "data": events,
