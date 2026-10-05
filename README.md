@@ -11,6 +11,7 @@ A full-featured **event booking platform** backend built with **FastAPI** and **
 | **Framework** | FastAPI (async) |
 | **ORM** | SQLAlchemy (async) with `mapped_column` declarative style |
 | **Database** | PostgreSQL (via async engine) |
+| **Migrations** | Alembic (auto-generate + manual migration scripts) |
 | **Auth** | JWT (PyJWT) — Bearer token, 1-day expiry |
 | **Password Hashing** | `pwdlib` (recommended hash) |
 | **Payments** | Razorpay — order creation & signature verification |
@@ -28,6 +29,11 @@ A full-featured **event booking platform** backend built with **FastAPI** and **
 eventmaster/
 ├── Dockerfile                       # Docker image definition (Python 3.13, Uvicorn)
 ├── requirements.txt
+├── alembic.ini                      # Alembic configuration file
+├── alembic/
+│   ├── env.py                       # Migration environment (reads DATABASE_URL from .env)
+│   ├── script.py.mako               # Migration script template
+│   └── versions/                    # Auto-generated migration scripts
 └── app/                             # All application source code
     ├── main.py                      # App entry point, router registration, lifespan
     ├── database/
@@ -52,7 +58,7 @@ eventmaster/
         │       └── seats/
         │           └── seats.py     # Seat CRUD
         ├── events/
-        │   └── events.py            # Event CRUD with search/pagination
+        │   └── events.py            # Event CRUD with FTS search/pagination
         └── bookings/
             ├── bookings.py          # Booking flow + payment verify + history
             └── eventSections/
@@ -161,6 +167,15 @@ erDiagram
 | `SeatStatus` | `AVAILABLE` · `HELD` · `SOLD` |
 | `BookingStatus` | `PENDING` · `CONFIRMED` · `CANCELLED` · `EXPIRED` |
 
+### Database Constraints & Indexes
+
+| Model | Constraint / Index | Purpose |
+|---|---|---|
+| `Seat` | `UniqueConstraint(section_id, code)` — `unique_seat_constraint` | Prevents duplicate seat codes within the same section |
+| `Event` | `GIN Index` on `tsv` (`idx_events_tsv`) | Enables fast full-text search across event name + description |
+| `Event` | `tsv` — `TSVECTOR` computed column | Automatically maintained tsvector for FTS, persisted in DB |
+| `User`, `Venue`, `Event` | `DateTime(timezone=True)` on `created_at` | All timestamps are timezone-aware (UTC) |
+
 ---
 
 ## 🔑 Features In Detail
@@ -239,12 +254,21 @@ Events are tied to a specific venue. When an event is created, the system **auto
 
 | Parameter | Type | Description |
 |---|---|---|
-| `nameSearch` | `string` | Case-insensitive partial match on event name |
+| `nameSearch` | `string` | Full-text search across event name **and** description (ranked by relevance) |
 | `venueSearch` | `int` | Filter by venue ID |
 | `from_date` | `date` | Events on or after this date |
 | `to_date` | `date` | Events on or before this date |
 | `page` | `int` (≥1) | Pagination page number (default: 1) |
 | `limit` | `int` (1–100) | Results per page (default: 10) |
+
+**Full-Text Search details:**
+
+Event search uses PostgreSQL's native **Full-Text Search (FTS)** engine rather than a simple `ILIKE` pattern match:
+
+- The `Event` model carries a persisted `TSVECTOR` computed column (`tsv`) built from `name || ' ' || description` using the `english` text search configuration.
+- A **GIN index** (`idx_events_tsv`) on this column makes FTS queries fast at scale.
+- When `nameSearch` is provided, the query uses `plainto_tsquery('english', …)` and the `@@` match operator, and results are **ranked by `ts_rank`** — most relevant events appear first.
+- When `nameSearch` is omitted, all events are returned without ranking.
 
 **Event creation rules:**
 - The caller must be the **venue owner**.
@@ -463,6 +487,28 @@ locust -f app/tests/locustfile.py --host http://localhost:8000
 ```
 
 > The `Book` user class logs in on startup and immediately calls `POST /bookings/book`, exercising the per-event/section locking mechanism under concurrent load.
+
+---
+
+## 🗃️ Database Migrations (Alembic)
+
+This project uses **Alembic** for schema version control. The `alembic/env.py` reads `DATABASE_URL` directly from the `.env` file, so no manual config is required.
+
+```bash
+# Auto-generate a new migration from model changes
+alembic revision --autogenerate -m "describe your change"
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Roll back the last migration
+alembic downgrade -1
+
+# View migration history
+alembic history --verbose
+```
+
+> **Note:** The `alembic/versions/` directory tracks all applied migrations. Always review auto-generated scripts before running them in production, as computed columns (e.g. the `tsv` FTS column) may require manual adjustments.
 
 ---
 
